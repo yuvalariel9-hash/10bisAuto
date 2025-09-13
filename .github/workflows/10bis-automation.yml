@@ -55,7 +55,8 @@ jobs:
       with:
         github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         script: |
-          const sodium = require('tweetsodium');
+          const sodium = require('libsodium-wrappers');
+          await sodium.ready;
           
           // Get repository public key
           const { data: publicKey } = await github.rest.actions.getRepoPublicKey({
@@ -66,7 +67,8 @@ jobs:
           // Encrypt and update ACCESS_TOKEN if provided
           if ('${{ steps.refresh.outputs.access_token }}') {
             const accessTokenBytes = Buffer.from('${{ steps.refresh.outputs.access_token }}');
-            const accessTokenEncrypted = sodium.seal(accessTokenBytes, Buffer.from(publicKey.key, 'base64'));
+            const publicKeyBytes = Buffer.from(publicKey.key, 'base64');
+            const accessTokenEncrypted = sodium.crypto_box_seal(accessTokenBytes, publicKeyBytes);
             
             await github.rest.actions.createOrUpdateRepoSecret({
               owner: context.repo.owner,
@@ -81,7 +83,8 @@ jobs:
           // Encrypt and update REFRESH_TOKEN if provided
           if ('${{ steps.refresh.outputs.refresh_token }}') {
             const refreshTokenBytes = Buffer.from('${{ steps.refresh.outputs.refresh_token }}');
-            const refreshTokenEncrypted = sodium.seal(refreshTokenBytes, Buffer.from(publicKey.key, 'base64'));
+            const publicKeyBytes = Buffer.from(publicKey.key, 'base64');
+            const refreshTokenEncrypted = sodium.crypto_box_seal(refreshTokenBytes, publicKeyBytes);
             
             await github.rest.actions.createOrUpdateRepoSecret({
               owner: context.repo.owner,

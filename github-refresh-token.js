@@ -159,12 +159,12 @@ class GitHubTokenRefresh {
             // Set outputs for GitHub Actions
             if (process.env.GITHUB_ACTIONS) {
                 if (updates.AccessToken) {
-                    utils.setOutput('access_token', updates.AccessToken);
+                    await utils.setOutput('access_token', updates.AccessToken);
                 }
                 if (updates.RefreshToken) {
-                    utils.setOutput('refresh_token', updates.RefreshToken);
+                    await utils.setOutput('refresh_token', updates.RefreshToken);
                 }
-                utils.setOutput('tokens_updated', 'true');
+                await utils.setOutput('tokens_updated', 'true');
             }
             
             await utils.log(`Token refresh completed successfully. Updated fields: ${Object.keys(updates).join(', ')}`, this.logFile);
@@ -176,8 +176,8 @@ class GitHubTokenRefresh {
             
             // Set failure output for GitHub Actions
             if (process.env.GITHUB_ACTIONS) {
-                utils.setOutput('tokens_updated', 'false');
-                utils.setOutput('error', error.message);
+                await utils.setOutput('tokens_updated', 'false');
+                await utils.setOutput('error', error.message);
             }
             
             // Exit with error code for monitoring

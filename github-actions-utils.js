@@ -73,11 +73,11 @@ class GitHubActionsUtils {
         if (process.env.GITHUB_ACTIONS) {
             if (updates.AccessToken) {
                 console.log(`::add-mask::${updates.AccessToken}`);
-                console.log(`::set-output name=access_token::${updates.AccessToken}`);
+                await this.setOutput('access_token', updates.AccessToken);
             }
             if (updates.RefreshToken) {
                 console.log(`::add-mask::${updates.RefreshToken}`);
-                console.log(`::set-output name=refresh_token::${updates.RefreshToken}`);
+                await this.setOutput('refresh_token', updates.RefreshToken);
             }
             await this.log(`Tokens updated for GitHub Actions: ${Object.keys(updates).join(', ')}`);
             return;
@@ -179,11 +179,17 @@ class GitHubActionsUtils {
     }
 
     /**
-     * Set GitHub Actions output
+     * Set GitHub Actions output using Environment Files
      */
-    setOutput(name, value) {
-        if (process.env.GITHUB_ACTIONS) {
-            console.log(`::set-output name=${name}::${value}`);
+    async setOutput(name, value) {
+        if (process.env.GITHUB_ACTIONS && process.env.GITHUB_OUTPUT) {
+            try {
+                await fs.appendFile(process.env.GITHUB_OUTPUT, `${name}=${value}\n`);
+            } catch (error) {
+                console.error(`Failed to write to GITHUB_OUTPUT: ${error.message}`);
+                // Fallback to deprecated method for compatibility
+                console.log(`::set-output name=${name}::${value}`);
+            }
         }
     }
 

@@ -62,7 +62,7 @@ class GitHubActionsTest {
             throw new Error('No dependencies found in package.json');
         }
 
-        const requiredDeps = ['axios', 'fs-extra', 'tweetsodium'];
+        const requiredDeps = ['axios', 'fs-extra', 'libsodium-wrappers'];
         for (const dep of requiredDeps) {
             if (!packageJson.dependencies[dep]) {
                 throw new Error(`Missing required dependency: ${dep}`);

@@ -18,7 +18,7 @@ class GitHubCreditLoader {
             if (utils.isWeekend()) {
                 await utils.log('Skipping credit loading - today is weekend (Friday or Saturday)', this.logFile);
                 if (process.env.GITHUB_ACTIONS) {
-                    utils.setOutput('credit_loaded', 'skipped_weekend');
+                    await utils.setOutput('credit_loaded', 'skipped_weekend');
                 }
                 return;
             }
@@ -68,20 +68,20 @@ class GitHubCreditLoader {
                 if (response.status === 200 || response.status === 201) {
                     await utils.log('Credit loaded successfully!', this.logFile);
                     if (process.env.GITHUB_ACTIONS) {
-                        utils.setOutput('credit_loaded', 'success');
-                        utils.setOutput('amount_loaded', config.Amount);
+                        await utils.setOutput('credit_loaded', 'success');
+                        await utils.setOutput('amount_loaded', config.Amount);
                     }
                 } else {
                     await utils.log(`Unexpected response status: ${response.status}`, this.logFile);
                     if (process.env.GITHUB_ACTIONS) {
-                        utils.setOutput('credit_loaded', 'unexpected_status');
-                        utils.setOutput('response_status', response.status.toString());
+                        await utils.setOutput('credit_loaded', 'unexpected_status');
+                        await utils.setOutput('response_status', response.status.toString());
                     }
                 }
             } else {
                 await utils.log('Credit loading completed - no response data', this.logFile);
                 if (process.env.GITHUB_ACTIONS) {
-                    utils.setOutput('credit_loaded', 'no_response_data');
+                    await utils.setOutput('credit_loaded', 'no_response_data');
                 }
             }
             
@@ -92,15 +92,15 @@ class GitHubCreditLoader {
             
             // Set failure output for GitHub Actions
             if (process.env.GITHUB_ACTIONS) {
-                utils.setOutput('credit_loaded', 'failed');
-                utils.setOutput('error', error.message);
+                await utils.setOutput('credit_loaded', 'failed');
+                await utils.setOutput('error', error.message);
             }
             
             // If it's an authentication error, suggest token refresh
             if (error.message.includes('401') || error.message.includes('Unauthorized')) {
                 await utils.log('Authentication error detected - tokens may need refresh', this.logFile);
                 if (process.env.GITHUB_ACTIONS) {
-                    utils.setOutput('auth_error', 'true');
+                    await utils.setOutput('auth_error', 'true');
                 }
             }
             
@@ -141,15 +141,15 @@ class GitHubCreditLoader {
             await utils.log(`RefreshToken: ${config.RefreshToken ? 'Present' : 'Missing'}`, this.logFile);
             
             if (process.env.GITHUB_ACTIONS) {
-                utils.setOutput('config_test', 'passed');
+                await utils.setOutput('config_test', 'passed');
             }
             
             return true;
         } catch (error) {
             await utils.log(`Configuration test failed: ${error.message}`, this.logFile);
             if (process.env.GITHUB_ACTIONS) {
-                utils.setOutput('config_test', 'failed');
-                utils.setOutput('config_error', error.message);
+                await utils.setOutput('config_test', 'failed');
+                await utils.setOutput('config_error', error.message);
             }
             return false;
         }
