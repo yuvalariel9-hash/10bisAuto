@@ -1,0 +1,50 @@
+# 10bis Automation Cron Jobs Configuration
+# 
+# Instructions:
+# 1. Replace /path/to/10bis-automation with the actual path to your project directory
+# 2. Replace /path/to/node with the actual path to your Node.js binary (find with: which node)
+# 3. Add these lines to your crontab using: crontab -e
+# 4. Save and exit the crontab editor
+#
+# To check current crontab: crontab -l
+# To edit crontab: crontab -e
+# To remove all cron jobs: crontab -r
+
+# Token Refresh - Runs every 10 minutes
+# Format: minute hour day month day-of-week command
+*/10 * * * * /usr/bin/node /path/to/10bis-automation/refresh-token.js >> /path/to/10bis-automation/logs/cron.log 2>&1
+
+# Credit Loading - Runs daily at 10:00 AM, Monday through Thursday and Sunday (excludes Friday=5 and Saturday=6)
+# Format: minute hour day month day-of-week command
+0 10 * * 0,1,2,3,4 /usr/bin/node /path/to/10bis-automation/load-credit.js >> /path/to/10bis-automation/logs/cron.log 2>&1
+
+# Optional: Add a daily cleanup job to prevent log files from growing too large
+# This runs at 2 AM daily and keeps only the last 100 lines of each log file
+0 2 * * * find /path/to/10bis-automation/logs -name "*.log" -exec tail -n 100 {} \; > {}.tmp && mv {}.tmp {} 2>/dev/null
+
+# Example with actual paths (update these to match your system):
+# */10 * * * * /usr/bin/node /home/user/10bis-automation/refresh-token.js >> /home/user/10bis-automation/logs/cron.log 2>&1
+# 0 10 * * 0,1,2,3,4 /usr/bin/node /home/user/10bis-automation/load-credit.js >> /home/user/10bis-automation/logs/cron.log 2>&1
+
+# Cron Schedule Explanation:
+# 
+# Token Refresh: */10 * * * *
+# - */10: Every 10 minutes
+# - *: Every hour
+# - *: Every day of month
+# - *: Every month
+# - *: Every day of week
+#
+# Credit Loading: 0 10 * * 0,1,2,3,4
+# - 0: At minute 0 (exactly on the hour)
+# - 10: At hour 10 (10 AM)
+# - *: Every day of month
+# - *: Every month
+# - 0,1,2,3,4: Sunday(0), Monday(1), Tuesday(2), Wednesday(3), Thursday(4)
+#   (Excludes Friday=5 and Saturday=6)
+
+# Environment Variables (if needed):
+# You may need to set PATH and other environment variables for cron
+# Add these lines at the top of your crontab if scripts fail to run:
+# PATH=/usr/local/bin:/usr/bin:/bin
+# NODE_PATH=/usr/local/lib/node_modules
