@@ -10,7 +10,7 @@ class GitHubTokenRefresh {
     /**
      * Extract tokens from response headers/cookies
      */
-    extractTokensFromHeaders(response) {
+    async extractTokensFromHeaders(response) {
         const tokens = {};
         
         try {
