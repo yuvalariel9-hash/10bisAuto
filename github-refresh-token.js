@@ -8,6 +8,61 @@ class GitHubTokenRefresh {
     }
 
     /**
+     * Extract tokens from response headers/cookies
+     */
+    extractTokensFromHeaders(response) {
+        const tokens = {};
+        
+        try {
+            // Method 1: Check for tokens in Set-Cookie headers
+            const setCookieHeaders = response.headers['set-cookie'] || [];
+            
+            for (const cookie of setCookieHeaders) {
+                // Extract Authorization token from Set-Cookie
+                const authMatch = cookie.match(/Authorization=([^;]+)/);
+                if (authMatch) {
+                    tokens.AccessToken = authMatch[1];
+                    utils.maskValue(authMatch[1]);
+                    await utils.log('AccessToken extracted from Set-Cookie header', this.logFile);
+                }
+                
+                // Extract RefreshToken from Set-Cookie
+                const refreshMatch = cookie.match(/RefreshToken=([^;]+)/);
+                if (refreshMatch) {
+                    tokens.RefreshToken = refreshMatch[1];
+                    utils.maskValue(refreshMatch[1]);
+                    await utils.log('RefreshToken extracted from Set-Cookie header', this.logFile);
+                }
+            }
+            
+            // Method 2: Check for tokens in Authorization header
+            if (response.headers['authorization']) {
+                tokens.AccessToken = response.headers['authorization'].replace(/^Bearer\s+/i, '');
+                utils.maskValue(tokens.AccessToken);
+                await utils.log('AccessToken extracted from Authorization header', this.logFile);
+            }
+            
+            // Method 3: Check for custom headers (adjust header names as needed)
+            if (response.headers['x-access-token']) {
+                tokens.AccessToken = response.headers['x-access-token'];
+                utils.maskValue(tokens.AccessToken);
+                await utils.log('AccessToken extracted from X-Access-Token header', this.logFile);
+            }
+            
+            if (response.headers['x-refresh-token']) {
+                tokens.RefreshToken = response.headers['x-refresh-token'];
+                utils.maskValue(tokens.RefreshToken);
+                await utils.log('RefreshToken extracted from X-Refresh-Token header', this.logFile);
+            }
+            
+        } catch (error) {
+            await utils.log(`Error extracting tokens from headers: ${error.message}`, this.logFile);
+        }
+        
+        return tokens;
+    }
+
+    /**
      * Main function to refresh authentication tokens
      */
     async refreshTokens() {
@@ -50,38 +105,53 @@ class GitHubTokenRefresh {
             // Make the API request
             const response = await utils.makeHttpRequest(requestOptions);
             
-            // Check if response contains new tokens
-            if (!response.data) {
-                throw new Error('Empty response from refresh token API');
+            // Check if we got a response
+            if (!response) {
+                throw new Error('No response from refresh token API');
             }
 
-            const responseData = response.data;
+            await utils.log('Response received, extracting tokens from headers/cookies', this.logFile);
+
+            // Extract new tokens from response headers/cookies
+            const headerTokens = await this.extractTokensFromHeaders(response);
             
-            // Extract new tokens from response
-            const updates = {};
-            
-            if (responseData.AccessToken) {
-                updates.AccessToken = responseData.AccessToken;
-                utils.maskValue(responseData.AccessToken);
-                await utils.log('New AccessToken received', this.logFile);
-            }
-            
-            if (responseData.RefreshToken) {
-                updates.RefreshToken = responseData.RefreshToken;
-                utils.maskValue(responseData.RefreshToken);
-                await utils.log('New RefreshToken received', this.logFile);
+            // Also check response body as fallback (keep your original logic as backup)
+            const bodyTokens = {};
+            if (response.data) {
+                if (response.data.AccessToken) {
+                    bodyTokens.AccessToken = response.data.AccessToken;
+                    utils.maskValue(response.data.AccessToken);
+                    await utils.log('AccessToken found in response body (fallback)', this.logFile);
+                }
+                
+                if (response.data.RefreshToken) {
+                    bodyTokens.RefreshToken = response.data.RefreshToken;
+                    utils.maskValue(response.data.RefreshToken);
+                    await utils.log('RefreshToken found in response body (fallback)', this.logFile);
+                }
             }
 
-            // Update other fields if present in response
-            if (responseData.Amount !== undefined) {
-                updates.Amount = responseData.Amount;
+            // Merge tokens (headers take priority over body)
+            const updates = { ...bodyTokens, ...headerTokens };
+
+            // Update other fields if present in response body
+            if (response.data && response.data.Amount !== undefined) {
+                updates.Amount = response.data.Amount;
                 await utils.log('Amount updated from response', this.logFile);
             }
 
             if (Object.keys(updates).length === 0) {
-                await utils.log('No token updates received from API', this.logFile);
+                await utils.log('No token updates received from API (neither headers nor body)', this.logFile);
+                
+                // Log response headers for debugging
+                await utils.log(`Response headers: ${JSON.stringify(response.headers, null, 2)}`, this.logFile);
                 return;
             }
+
+            // Log what tokens were found and from where
+            const headerTokenCount = Object.keys(headerTokens).length;
+            const bodyTokenCount = Object.keys(bodyTokens).length;
+            await utils.log(`Tokens extracted - Headers: ${headerTokenCount}, Body: ${bodyTokenCount}`, this.logFile);
 
             // Update configuration
             await utils.updateConfig(updates);
