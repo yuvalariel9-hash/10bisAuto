@@ -4,9 +4,16 @@
   "description": "Automated 10bis credit loading and token refresh system",
   "main": "index.js",
   "scripts": {
-    "refresh-token": "node refresh-token.js",
-    "load-credit": "node load-credit.js",
-    "test": "node test.js"
+    "test": "node test.js",
+    "test-teams": "node test-teams-notifications.js",
+    "test-teams-connection": "node test-teams-notifications.js --test",
+    "teams-setup": "node test-teams-notifications.js --help",
+    "debug-tokens": "node debug-token-refresh.js",
+    "token-status": "node debug-token-refresh.js --status",
+    "update-github-secrets": "node update-github-secrets.js",
+    "github-token-help": "node update-github-secrets.js --help",
+    "test-refresh": "node github-refresh-token.js",
+    "test-credit": "node github-load-credit.js"
   },
   "keywords": [
     "10bis",
@@ -19,7 +26,8 @@
   "dependencies": {
     "axios": "^1.6.0",
     "fs-extra": "^11.1.1",
-    "libsodium-wrappers": "^0.7.15"
+    "libsodium-wrappers": "^0.7.15",
+    "@octokit/rest": "^20.0.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

@@ -1,18 +1,50 @@
 #!/usr/bin/env node
 
 const utils = require('./github-actions-utils');
+const GitHubTeamsNotifier = require('./github-teams-notifier');
 
 class GitHubCreditLoader {
     constructor() {
         this.logFile = 'credit.log';
+        this.teamsNotifier = null;
+    }
+
+    /**
+     * Initialize Teams notifier if configuration is available
+     */
+    async initializeTeamsNotifier() {
+        try {
+            const teamsConfig = {
+                tenantId: process.env.TEAMS_TENANT_ID,
+                clientId: process.env.TEAMS_CLIENT_ID,
+                clientSecret: process.env.TEAMS_CLIENT_SECRET,
+                userId: process.env.TEAMS_USER_ID
+            };
+
+            if (teamsConfig.tenantId && teamsConfig.clientId && teamsConfig.clientSecret && teamsConfig.userId) {
+                this.teamsNotifier = new GitHubTeamsNotifier(teamsConfig, utils);
+                await utils.log('Teams notifier initialized for direct messaging');
+            } else {
+                await utils.log('Teams configuration not complete - notifications disabled');
+                await utils.log('Required: TEAMS_TENANT_ID, TEAMS_CLIENT_ID, TEAMS_CLIENT_SECRET, TEAMS_USER_ID');
+            }
+        } catch (error) {
+            await utils.log(`Failed to initialize Teams notifier: ${error.message}`, 'error.log');
+        }
     }
 
     /**
      * Main function to load 10bis credit
      */
     async loadCredit() {
+        const timestamp = utils.getCurrentTimeIsrael();
+        let amount = 'Unknown';
+        
         try {
             await utils.log('Starting credit loading process', this.logFile);
+            
+            // Initialize Teams notifier
+            await this.initializeTeamsNotifier();
             
             // Check if today is weekend (Friday or Saturday)
             if (utils.isWeekend()) {
@@ -25,6 +57,7 @@ class GitHubCreditLoader {
             
             // Read current configuration
             const config = utils.getConfig();
+            amount = config.Amount;
             
             // Validate required fields for credit loading
             utils.validateConfig(config, ['AccessToken', 'RefreshToken', 'Amount', 'MoneycardId']);
@@ -48,8 +81,8 @@ class GitHubCreditLoader {
                     'Cookie': `_gcl_au=1.1.283592624.1745399880; _ga=GA1.1.901790421.1745399881; Authorization=${config.AccessToken}; RefreshToken=${config.RefreshToken}`
                 },
                 data: {
-                    amount: config.Amount,
-                    moneycardIdToCharge: config.MoneycardId
+                    amount: parseInt(config.Amount, 10),
+                    moneycardIdToCharge: parseInt(config.MoneycardId, 10)
                 }
             };
 
@@ -71,17 +104,32 @@ class GitHubCreditLoader {
                         await utils.setOutput('credit_loaded', 'success');
                         await utils.setOutput('amount_loaded', config.Amount);
                     }
+                    
+                    // Send success notification to Teams
+                    if (this.teamsNotifier) {
+                        await this.teamsNotifier.sendSuccessNotification(amount, timestamp);
+                    }
                 } else {
                     await utils.log(`Unexpected response status: ${response.status}`, this.logFile);
                     if (process.env.GITHUB_ACTIONS) {
                         await utils.setOutput('credit_loaded', 'unexpected_status');
                         await utils.setOutput('response_status', response.status.toString());
                     }
+                    
+                    // Send failure notification to Teams
+                    if (this.teamsNotifier) {
+                        await this.teamsNotifier.sendFailureNotification(amount, timestamp, `Unexpected response status: ${response.status}`);
+                    }
                 }
             } else {
                 await utils.log('Credit loading completed - no response data', this.logFile);
                 if (process.env.GITHUB_ACTIONS) {
                     await utils.setOutput('credit_loaded', 'no_response_data');
+                }
+                
+                // Send failure notification to Teams (no response data might indicate an issue)
+                if (this.teamsNotifier) {
+                    await this.teamsNotifier.sendFailureNotification(amount, timestamp, 'No response data received');
                 }
             }
             
@@ -94,6 +142,11 @@ class GitHubCreditLoader {
             if (process.env.GITHUB_ACTIONS) {
                 await utils.setOutput('credit_loaded', 'failed');
                 await utils.setOutput('error', error.message);
+            }
+            
+            // Send failure notification to Teams
+            if (this.teamsNotifier) {
+                await this.teamsNotifier.sendFailureNotification(amount, timestamp, error.message);
             }
             
             // If it's an authentication error, suggest token refresh

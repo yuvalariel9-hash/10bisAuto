@@ -123,6 +123,10 @@ jobs:
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
         AMOUNT: ${{ secrets.AMOUNT }}
         MONEYCARD_ID: ${{ secrets.MONEYCARD_ID }}
+        TEAMS_TENANT_ID: ${{ secrets.TEAMS_TENANT_ID }}
+        TEAMS_CLIENT_ID: ${{ secrets.TEAMS_CLIENT_ID }}
+        TEAMS_CLIENT_SECRET: ${{ secrets.TEAMS_CLIENT_SECRET }}
+        TEAMS_USER_ID: ${{ secrets.TEAMS_USER_ID }}
       
     - name: Upload logs
       if: always()
@@ -156,6 +160,10 @@ jobs:
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
         AMOUNT: ${{ secrets.AMOUNT }}
         MONEYCARD_ID: ${{ secrets.MONEYCARD_ID }}
+        TEAMS_TENANT_ID: ${{ secrets.TEAMS_TENANT_ID }}
+        TEAMS_CLIENT_ID: ${{ secrets.TEAMS_CLIENT_ID }}
+        TEAMS_CLIENT_SECRET: ${{ secrets.TEAMS_CLIENT_SECRET }}
+        TEAMS_USER_ID: ${{ secrets.TEAMS_USER_ID }}
       
     - name: Test token refresh
       run: node github-refresh-token.js
@@ -164,6 +172,10 @@ jobs:
         REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
         AMOUNT: ${{ secrets.AMOUNT }}
         MONEYCARD_ID: ${{ secrets.MONEYCARD_ID }}
+        TEAMS_TENANT_ID: ${{ secrets.TEAMS_TENANT_ID }}
+        TEAMS_CLIENT_ID: ${{ secrets.TEAMS_CLIENT_ID }}
+        TEAMS_CLIENT_SECRET: ${{ secrets.TEAMS_CLIENT_SECRET }}
+        TEAMS_USER_ID: ${{ secrets.TEAMS_USER_ID }}
       
     - name: Upload logs
       if: always()
