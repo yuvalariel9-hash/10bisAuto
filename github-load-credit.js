@@ -81,8 +81,8 @@ class GitHubCreditLoader {
                     'Cookie': `_gcl_au=1.1.283592624.1745399880; _ga=GA1.1.901790421.1745399881; Authorization=${config.AccessToken}; RefreshToken=${config.RefreshToken}`
                 },
                 data: {
-                    amount: config.Amount,
-                    moneycardIdToCharge: config.MoneycardId
+                    amount: parseInt(config.Amount, 10),
+                    moneycardIdToCharge: parseInt(config.MoneycardId, 10)
                 }
             };
 
