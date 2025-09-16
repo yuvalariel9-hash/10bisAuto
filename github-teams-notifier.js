@@ -70,37 +70,92 @@ class GitHubTeamsNotifier {
 
             await this.utils.log('Sending Teams direct message...');
             
-            // Send message via Microsoft Graph API
-            const graphUrl = `https://graph.microsoft.com/v1.0/chats`;
+            // Try to send message directly to user (simpler approach)
+            // This creates a chat automatically if it doesn't exist
+            const messageUrl = `https://graph.microsoft.com/v1.0/users/${this.userId}/messages`;
             
-            // First, create or get existing chat with the user
-            const chatResponse = await axios.post(graphUrl, {
-                chatType: "oneOnOne",
-                members: [
-                    {
-                        "@odata.type": "#microsoft.graph.aadUserConversationMember",
-                        roles: ["owner"],
-                        "user@odata.bind": `https://graph.microsoft.com/v1.0/users('${this.userId}')`
+            try {
+                const response = await axios.post(messageUrl, {
+                    subject: "10bis Credit Loading Notification",
+                    body: {
+                        contentType: "html",
+                        content: message.htmlContent
+                    },
+                    toRecipients: [
+                        {
+                            emailAddress: {
+                                address: this.userId // This should be email address
+                            }
+                        }
+                    ]
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+                
+                await this.utils.log('Teams message sent via email API');
+                
+            } catch (emailError) {
+                await this.utils.log(`Email API failed, trying chat API: ${emailError.message}`);
+                
+                // Fallback: Try to send via chat API with simpler approach
+                const chatUrl = `https://graph.microsoft.com/v1.0/me/chats`;
+                
+                // Get existing chats first
+                const chatsResponse = await axios.get(chatUrl, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`
                     }
-                ]
-            }, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
+                });
+                
+                // Find or create chat with the user
+                let chatId = null;
+                const existingChats = chatsResponse.data.value;
+                
+                // Look for existing one-on-one chat
+                for (const chat of existingChats) {
+                    if (chat.chatType === 'oneOnOne' && chat.members) {
+                        const memberIds = chat.members.map(m => m.userId);
+                        if (memberIds.includes(this.userId)) {
+                            chatId = chat.id;
+                            break;
+                        }
+                    }
                 }
-            });
-
-            const chatId = chatResponse.data.id;
-
-            // Send the message to the chat
-            const messageUrl = `https://graph.microsoft.com/v1.0/chats/${chatId}/messages`;
-            const response = await axios.post(messageUrl, chatMessage, {
-                headers: {
-                    'Authorization': `Bearer ${accessToken}`,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 10000
-            });
+                
+                if (!chatId) {
+                    await this.utils.log('No existing chat found, creating new one');
+                    // Create new chat
+                    const newChatResponse = await axios.post(`https://graph.microsoft.com/v1.0/chats`, {
+                        chatType: "oneOnOne",
+                        members: [
+                            {
+                                "@odata.type": "#microsoft.graph.aadUserConversationMember",
+                                roles: ["owner"],
+                                "user@odata.bind": `https://graph.microsoft.com/v1.0/users/${this.userId}`
+                            }
+                        ]
+                    }, {
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    chatId = newChatResponse.data.id;
+                }
+                
+                // Send message to chat
+                const response = await axios.post(`https://graph.microsoft.com/v1.0/chats/${chatId}/messages`, chatMessage, {
+                    headers: {
+                        'Authorization': `Bearer ${accessToken}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 10000
+                });
+            }
 
             if (response.status === 201) {
                 await this.utils.log('Teams direct message sent successfully');

@@ -35,6 +35,7 @@ Each notification includes:
    - `Chat.Create`
    - `Chat.ReadWrite.All`
    - `User.Read.All`
+   - `Mail.Send` (for email notifications as fallback)
 6. Click "Grant admin consent" (requires admin privileges)
 
 ### Step 3: Create Client Secret
@@ -46,8 +47,12 @@ Each notification includes:
 5. Click "Add"
 6. **Copy the secret value immediately** (you won't see it again)
 
-### Step 4: Get Your User ID
+### Step 4: Get Your User ID or Email
 
+**Option 1: Use your email address (easier)**
+- Just use your work email address (e.g., `user@company.com`)
+
+**Option 2: Get your User ID**
 1. Go to [Microsoft Graph Explorer](https://developer.microsoft.com/en-us/graph/graph-explorer)
 2. Sign in with your account
 3. Run this query: `GET https://graph.microsoft.com/v1.0/me`
@@ -60,7 +65,7 @@ Add these repository secrets in GitHub:
 1. `TEAMS_TENANT_ID` - Your Azure AD Tenant ID (from app registration overview)
 2. `TEAMS_CLIENT_ID` - Your app's Application (client) ID
 3. `TEAMS_CLIENT_SECRET` - The client secret you created
-4. `TEAMS_USER_ID` - Your user ID from Graph Explorer
+4. `TEAMS_USER_ID` - Your email address or user ID from Graph Explorer
 
 ## Testing the Setup
 
@@ -130,6 +135,7 @@ Your Azure app registration needs these Microsoft Graph permissions:
 - `Chat.Create` - To create chats
 - `Chat.ReadWrite.All` - To send messages
 - `User.Read.All` - To read user information
+- `Mail.Send` - To send email notifications as fallback
 
 ### Logs
 
