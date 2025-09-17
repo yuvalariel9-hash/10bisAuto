@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 const utils = require('./github-actions-utils');
-const GitHubTeamsNotifier = require('./github-teams-notifier');
+const TeamsWebhookNotifier = require('./teams-webhook-notifier');
 
 class GitHubCreditLoader {
     constructor() {
@@ -12,24 +12,17 @@ class GitHubCreditLoader {
     /**
      * Initialize Teams notifier if configuration is available
      */
-    async initializeTeamsNotifier() {
+    async initializeTeamsWebhook() {
         try {
-            const teamsConfig = {
-                tenantId: process.env.TEAMS_TENANT_ID,
-                clientId: process.env.TEAMS_CLIENT_ID,
-                clientSecret: process.env.TEAMS_CLIENT_SECRET,
-                userId: process.env.TEAMS_USER_ID
-            };
-
-            if (teamsConfig.tenantId && teamsConfig.clientId && teamsConfig.clientSecret && teamsConfig.userId) {
-                this.teamsNotifier = new GitHubTeamsNotifier(teamsConfig, utils);
-                await utils.log('Teams notifier initialized for direct messaging');
+            if (process.env.TEAMS_WEBHOOK_URL) {
+                this.teamsNotifier = new TeamsWebhookNotifier(process.env.TEAMS_WEBHOOK_URL, utils);
+                await utils.log('Teams webhook notifier initialized - notifications will be sent to Teams channel');
             } else {
-                await utils.log('Teams configuration not complete - notifications disabled');
-                await utils.log('Required: TEAMS_TENANT_ID, TEAMS_CLIENT_ID, TEAMS_CLIENT_SECRET, TEAMS_USER_ID');
+                await utils.log('Teams webhook not configured - notifications disabled');
+                await utils.log('Required: TEAMS_WEBHOOK_URL environment variable');
             }
         } catch (error) {
-            await utils.log(`Failed to initialize Teams notifier: ${error.message}`, 'error.log');
+            await utils.log(`Failed to initialize Teams webhook: ${error.message}`, 'error.log');
         }
     }
 
@@ -43,8 +36,8 @@ class GitHubCreditLoader {
         try {
             await utils.log('Starting credit loading process', this.logFile);
             
-            // Initialize Teams notifier
-            await this.initializeTeamsNotifier();
+            // Initialize Teams webhook notifications
+            await this.initializeTeamsWebhook();
             
             // Check if today is weekend (Friday or Saturday)
             if (utils.isWeekend()) {
@@ -105,7 +98,7 @@ class GitHubCreditLoader {
                         await utils.setOutput('amount_loaded', config.Amount);
                     }
                     
-                    // Send success notification to Teams
+                    // Send success Teams notification
                     if (this.teamsNotifier) {
                         await this.teamsNotifier.sendSuccessNotification(amount, timestamp);
                     }
@@ -116,7 +109,7 @@ class GitHubCreditLoader {
                         await utils.setOutput('response_status', response.status.toString());
                     }
                     
-                    // Send failure notification to Teams
+                    // Send failure Teams notification
                     if (this.teamsNotifier) {
                         await this.teamsNotifier.sendFailureNotification(amount, timestamp, `Unexpected response status: ${response.status}`);
                     }
@@ -127,7 +120,7 @@ class GitHubCreditLoader {
                     await utils.setOutput('credit_loaded', 'no_response_data');
                 }
                 
-                // Send failure notification to Teams (no response data might indicate an issue)
+                // Send failure Teams notification (no response data might indicate an issue)
                 if (this.teamsNotifier) {
                     await this.teamsNotifier.sendFailureNotification(amount, timestamp, 'No response data received');
                 }
@@ -144,7 +137,7 @@ class GitHubCreditLoader {
                 await utils.setOutput('error', error.message);
             }
             
-            // Send failure notification to Teams
+            // Send failure Teams notification
             if (this.teamsNotifier) {
                 await this.teamsNotifier.sendFailureNotification(amount, timestamp, error.message);
             }
