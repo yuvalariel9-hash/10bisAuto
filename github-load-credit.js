@@ -87,42 +87,36 @@ class GitHubCreditLoader {
             // Log successful response
             await utils.log(`Credit loading API response status: ${response.status}`, this.logFile);
             
-            if (response.data) {
-                await utils.log(`Credit loading response: ${JSON.stringify(response.data)}`, this.logFile);
+            // Check if the response indicates success (200 or 201 status codes)
+            if (response.status === 200 || response.status === 201) {
+                await utils.log('Credit loaded successfully!', this.logFile);
                 
-                // Check if the response indicates success
-                if (response.status === 200 || response.status === 201) {
-                    await utils.log('Credit loaded successfully!', this.logFile);
-                    if (process.env.GITHUB_ACTIONS) {
-                        await utils.setOutput('credit_loaded', 'success');
-                        await utils.setOutput('amount_loaded', config.Amount);
-                    }
-                    
-                    // Send success Teams notification
-                    if (this.teamsNotifier) {
-                        await this.teamsNotifier.sendSuccessNotification(amount, timestamp);
-                    }
+                // Log response data if present
+                if (response.data) {
+                    await utils.log(`Credit loading response: ${JSON.stringify(response.data)}`, this.logFile);
                 } else {
-                    await utils.log(`Unexpected response status: ${response.status}`, this.logFile);
-                    if (process.env.GITHUB_ACTIONS) {
-                        await utils.setOutput('credit_loaded', 'unexpected_status');
-                        await utils.setOutput('response_status', response.status.toString());
-                    }
-                    
-                    // Send failure Teams notification
-                    if (this.teamsNotifier) {
-                        await this.teamsNotifier.sendFailureNotification(amount, timestamp, `Unexpected response status: ${response.status}`);
-                    }
+                    await utils.log('Credit loading completed - no response data (this is normal for 10bis API)', this.logFile);
+                }
+                
+                if (process.env.GITHUB_ACTIONS) {
+                    await utils.setOutput('credit_loaded', 'success');
+                    await utils.setOutput('amount_loaded', config.Amount);
+                }
+                
+                // Send success Teams notification
+                if (this.teamsNotifier) {
+                    await this.teamsNotifier.sendSuccessNotification(amount, timestamp);
                 }
             } else {
-                await utils.log('Credit loading completed - no response data', this.logFile);
+                await utils.log(`Unexpected response status: ${response.status}`, this.logFile);
                 if (process.env.GITHUB_ACTIONS) {
-                    await utils.setOutput('credit_loaded', 'no_response_data');
+                    await utils.setOutput('credit_loaded', 'unexpected_status');
+                    await utils.setOutput('response_status', response.status.toString());
                 }
                 
-                // Send failure Teams notification (no response data might indicate an issue)
+                // Send failure Teams notification
                 if (this.teamsNotifier) {
-                    await this.teamsNotifier.sendFailureNotification(amount, timestamp, 'No response data received');
+                    await this.teamsNotifier.sendFailureNotification(amount, timestamp, `Unexpected response status: ${response.status}`);
                 }
             }
             
