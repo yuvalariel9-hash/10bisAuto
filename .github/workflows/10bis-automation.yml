@@ -184,6 +184,22 @@ jobs:
           
           console.log('Secrets updated successfully');
       
+    - name: Update config.json with fresh tokens
+      run: |
+        if [ "${{ steps.refresh.outputs.tokens_updated }}" == "true" ]; then
+          cat > config.json << EOF
+        {
+          "AccessToken": "${{ steps.refresh.outputs.access_token }}",
+          "RefreshToken": "${{ steps.refresh.outputs.refresh_token }}",
+          "Amount": "${{ secrets.AMOUNT }}",
+          "MoneycardId": "${{ secrets.MONEYCARD_ID }}"
+        }
+        EOF
+          echo "✓ Config file updated with fresh tokens from refresh step"
+        else
+          echo "✓ Using existing config.json with original tokens (no refresh needed)"
+        fi
+      
     - name: Run credit loading with fresh tokens
       id: load-credit
       run: node github-load-credit.js
