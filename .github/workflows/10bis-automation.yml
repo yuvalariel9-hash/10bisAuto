@@ -4,8 +4,9 @@ on:
   schedule:
     # Token refresh every 10 minutes
     - cron: '*/10 * * * *'
-    # Credit loading daily at 7:00 AM UTC (10:00 AM Israel time)
-    - cron: '0 7 * * 0,1,2,3,4'
+    
+    # Credit loading daily at 7:05 AM UTC (10:05 AM Israel time) - avoid conflict with token refresh
+    - cron: '5 7 * * 0,1,2,3,4'
   workflow_dispatch: # Allow manual triggering
 
 env:
@@ -100,7 +101,7 @@ jobs:
 
   load-credit:
     runs-on: ubuntu-latest
-    if: github.event.schedule == '0 7 * * 0,1,2,3,4' || github.event_name == 'workflow_dispatch'
+    if: github.event.schedule == '5 7 * * 0,1,2,3,4' || github.event_name == 'workflow_dispatch'
     
     steps:
     - name: Checkout code
