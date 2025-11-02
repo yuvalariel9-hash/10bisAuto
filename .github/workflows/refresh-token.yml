@@ -1,10 +1,17 @@
 name: Refresh Token
 
 on:
-  schedule:
-    # Token refresh every 10 minutes
-    - cron: '*/10 * * * *'
-  workflow_dispatch: # Allow manual triggering
+  # schedule:
+  # Token refresh every 10 minutes (at 2, 12, 22, 32, 42, 52 minutes past the hour)
+  # Offset to avoid conflict with load-credit at 7:05 AM UTC
+  # DISABLED: Load credit workflow already refreshes tokens before loading
+  # - cron: "2,12,22,32,42,52 * * * *"
+  workflow_dispatch: # Allow manual triggering (keep for testing)
+
+# Prevent concurrent runs - only one token operation at a time
+concurrency:
+  group: token-operations
+  cancel-in-progress: false
 
 env:
   TZ: Asia/Jerusalem
@@ -14,91 +21,91 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Create config from secrets
-      run: |
-        cat > config.json << EOF
-        {
-          "AccessToken": "${{ secrets.ACCESS_TOKEN }}",
-          "RefreshToken": "${{ secrets.REFRESH_TOKEN }}",
-          "Amount": "${{ secrets.AMOUNT }}",
-          "MoneycardId": "${{ secrets.MONEYCARD_ID }}"
-        }
-        EOF
+      - name: Create config from secrets
+        run: |
+          cat > config.json << EOF
+          {
+            "AccessToken": "${{ secrets.ACCESS_TOKEN }}",
+            "RefreshToken": "${{ secrets.REFRESH_TOKEN }}",
+            "Amount": "${{ secrets.AMOUNT }}",
+            "MoneycardId": "${{ secrets.MONEYCARD_ID }}"
+          }
+          EOF
 
-    - name: Run token refresh
-      id: refresh
-      run: node github-refresh-token.js
-      env:
-        ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-        REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
-        AMOUNT: ${{ secrets.AMOUNT }}
-        MONEYCARD_ID: ${{ secrets.MONEYCARD_ID }}
+      - name: Run token refresh
+        id: refresh
+        run: node github-refresh-token.js
+        env:
+          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          REFRESH_TOKEN: ${{ secrets.REFRESH_TOKEN }}
+          AMOUNT: ${{ secrets.AMOUNT }}
+          MONEYCARD_ID: ${{ secrets.MONEYCARD_ID }}
 
-    - name: Update GitHub secrets
-      if: steps.refresh.outputs.tokens_updated == 'true'
-      uses: actions/github-script@v7
-      with:
-        github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-        script: |
-          const sodium = require('libsodium-wrappers');
-          await sodium.ready;
+      - name: Update GitHub secrets
+        if: steps.refresh.outputs.tokens_updated == 'true'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          script: |
+            const sodium = require('libsodium-wrappers');
+            await sodium.ready;
 
-          // Get repository public key
-          const { data: publicKey } = await github.rest.actions.getRepoPublicKey({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-          });
-
-          // Encrypt and update ACCESS_TOKEN if provided
-          if ('${{ steps.refresh.outputs.access_token }}') {
-            const accessTokenBytes = Buffer.from('${{ steps.refresh.outputs.access_token }}');
-            const publicKeyBytes = Buffer.from(publicKey.key, 'base64');
-            const accessTokenEncrypted = sodium.crypto_box_seal(accessTokenBytes, publicKeyBytes);
-
-            await github.rest.actions.createOrUpdateRepoSecret({
+            // Get repository public key
+            const { data: publicKey } = await github.rest.actions.getRepoPublicKey({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              secret_name: 'ACCESS_TOKEN',
-              encrypted_value: Buffer.from(accessTokenEncrypted).toString('base64'),
-              key_id: publicKey.key_id,
             });
-            console.log('ACCESS_TOKEN updated');
-          }
 
-          // Encrypt and update REFRESH_TOKEN if provided
-          if ('${{ steps.refresh.outputs.refresh_token }}') {
-            const refreshTokenBytes = Buffer.from('${{ steps.refresh.outputs.refresh_token }}');
-            const publicKeyBytes = Buffer.from(publicKey.key, 'base64');
-            const refreshTokenEncrypted = sodium.crypto_box_seal(refreshTokenBytes, publicKeyBytes);
+            // Encrypt and update ACCESS_TOKEN if provided
+            if ('${{ steps.refresh.outputs.access_token }}') {
+              const accessTokenBytes = Buffer.from('${{ steps.refresh.outputs.access_token }}');
+              const publicKeyBytes = Buffer.from(publicKey.key, 'base64');
+              const accessTokenEncrypted = sodium.crypto_box_seal(accessTokenBytes, publicKeyBytes);
 
-            await github.rest.actions.createOrUpdateRepoSecret({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              secret_name: 'REFRESH_TOKEN',
-              encrypted_value: Buffer.from(refreshTokenEncrypted).toString('base64'),
-              key_id: publicKey.key_id,
-            });
-            console.log('REFRESH_TOKEN updated');
-          }
+              await github.rest.actions.createOrUpdateRepoSecret({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                secret_name: 'ACCESS_TOKEN',
+                encrypted_value: Buffer.from(accessTokenEncrypted).toString('base64'),
+                key_id: publicKey.key_id,
+              });
+              console.log('ACCESS_TOKEN updated');
+            }
 
-          console.log('Secrets updated successfully');
+            // Encrypt and update REFRESH_TOKEN if provided
+            if ('${{ steps.refresh.outputs.refresh_token }}') {
+              const refreshTokenBytes = Buffer.from('${{ steps.refresh.outputs.refresh_token }}');
+              const publicKeyBytes = Buffer.from(publicKey.key, 'base64');
+              const refreshTokenEncrypted = sodium.crypto_box_seal(refreshTokenBytes, publicKeyBytes);
 
-    - name: Upload logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: refresh-logs-${{ github.run_number }}
-        path: logs/
-        retention-days: 7
+              await github.rest.actions.createOrUpdateRepoSecret({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                secret_name: 'REFRESH_TOKEN',
+                encrypted_value: Buffer.from(refreshTokenEncrypted).toString('base64'),
+                key_id: publicKey.key_id,
+              });
+              console.log('REFRESH_TOKEN updated');
+            }
+
+            console.log('Secrets updated successfully');
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: refresh-logs-${{ github.run_number }}
+          path: logs/
+          retention-days: 7
